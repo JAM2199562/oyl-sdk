@@ -833,3 +833,26 @@ export const alkaneGetAllPoolsDetails = new Command('get-all-pools-details')
 
     console.log(JSON.stringify(allPoolsDetails, null, 2))
   })
+
+/**
+ * Command for bumping the fee of a transaction using RBF
+ * @example
+ * oyl alkane bump-fee -txid "6c17d0fc8b915aae2ce1a99b4bfd149f2ebc5e6762202a770a1329dff99ee0b1" -feeRate 5 -p regtest
+ */
+export const alkaneBumpFee = new Command('bump-fee')
+  .requiredOption('-txid, --transaction-id <txid>', 'Transaction ID to bump')
+  .option('-feeRate, --feeRate <feeRate>', 'New fee rate in sat/vB')
+  .option('-p, --provider <provider>', 'Network provider type (regtest, bitcoin)')
+  .action(async (options) => {
+    const wallet: Wallet = new Wallet(options)
+    
+    console.log(
+      await alkanes.bumpFee({
+        txid: options.transactionId.replace(/"/g, ''), // Remove quotation marks from txid
+        newFeeRate: Number(options.feeRate || wallet.feeRate),
+        account: wallet.account,
+        signer: wallet.signer,
+        provider: wallet.provider,
+      })
+    )
+  })

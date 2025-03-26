@@ -168,3 +168,62 @@ export declare const createTransactReveal: ({ protostone, receiverAddress, scrip
     psbt: string;
     fee: number;
 }>;
+/**
+ * Calculate the correct fee for bumping a transaction fee
+ * @param txid - Transaction ID to bump
+ * @param account - Wallet account
+ * @param provider - Network provider
+ * @param newFeeRate - New fee rate in sat/vB
+ * @param signer - Wallet signer
+ * @returns Object containing the calculated fee
+ */
+export declare const actualBumpFeeFee: ({ txid, account, provider, newFeeRate, signer, }: {
+    txid: string;
+    account: Account;
+    provider: Provider;
+    newFeeRate: number;
+    signer: Signer;
+}) => Promise<{
+    fee: number;
+}>;
+/**
+ * Create a PSBT for bumping transaction fee
+ * @param txid - Transaction ID to bump
+ * @param account - Wallet account
+ * @param provider - Network provider
+ * @param newFeeRate - New fee rate in sat/vB
+ * @param fee - Optional specific fee amount (if not provided, calculated from newFeeRate)
+ * @returns Object containing the base64 encoded PSBT
+ */
+export declare const createBumpFeePsbt: ({ txid, account, provider, newFeeRate, fee, }: {
+    txid: string;
+    account: Account;
+    provider: Provider;
+    newFeeRate: number;
+    fee?: number;
+}) => Promise<{
+    psbt: string;
+}>;
+/**
+ * Bump the fee of a transaction using RBF
+ * @param txid - Transaction ID to bump
+ * @param newFeeRate - New fee rate in sat/vB
+ * @param account - Wallet account
+ * @param provider - Network provider
+ * @param signer - Wallet signer
+ * @returns Result of the transaction broadcast
+ */
+export declare const bumpFee: ({ txid, newFeeRate, account, provider, signer, }: {
+    txid: string;
+    newFeeRate: number;
+    account: Account;
+    provider: Provider;
+    signer: Signer;
+}) => Promise<{
+    txId: string;
+    rawTx: string;
+    size: any;
+    weight: any;
+    fee: number;
+    satsPerVByte: string;
+}>;

@@ -14,6 +14,7 @@ import {
   alkaneSwap,
   alkaneSimulate,
   alkaneGetAllPoolsDetails,
+  alkaneBumpFee,
 } from './alkane'
 import { init, genBlocks, sendFromFaucet } from './regtest'
 import { runeSend, runeMint, runeEtchCommit, runeEtchReveal } from './rune'
@@ -95,6 +96,7 @@ const alkaneCommand = new Command('alkane')
   .addCommand(alkaneSwap)
   .addCommand(alkaneSimulate)
   .addCommand(alkaneGetAllPoolsDetails)
+  .addCommand(alkaneBumpFee)
   
   
 const providerCommand = new Command('provider')
