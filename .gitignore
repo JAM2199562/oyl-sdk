@@ -11,3 +11,9 @@ yarn-error.log
 package-lock.json
 memory-bank/activeContext.md
 memory-bank/progress.md
+
+# TypeScript compiled files
+lib/
+dist/
+*.js.map
+*.d.ts
