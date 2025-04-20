@@ -1,5 +1,17 @@
 import { EsploraRpc } from './esplora';
+import { AlkaneId } from 'shared/interface';
+import { RemoveLiquidityPreviewResult } from '../amm/utils';
+export declare class MetashrewOverride {
+    override: any;
+    constructor();
+    set(v: any): void;
+    exists(): boolean;
+    get(): any;
+}
+export declare const metashrew: MetashrewOverride;
 export declare const stripHexPrefix: (s: string) => string;
+export declare function mapToPrimitives(v: any): any;
+export declare function unmapFromPrimitives(v: any): any;
 export interface Rune {
     rune: {
         id: {
@@ -60,6 +72,7 @@ export declare class AlkanesRpc {
     alkanesUrl: string;
     esplora: EsploraRpc;
     constructor(url: string);
+    _metashrewCall(method: string, params?: any[]): Promise<any>;
     _call(method: string, params?: any[]): Promise<any>;
     getAlkanesByHeight({ height, protocolTag, }: {
         height: number;
@@ -88,10 +101,21 @@ export declare class AlkanesRpc {
     };
     simulate(request: Partial<AlkaneSimulateRequest>, decoder?: any): Promise<any>;
     simulatePoolInfo(request: AlkaneSimulateRequest): Promise<any>;
-    getAlkanesByOutpoint({ txid, vout, protocolTag, }: {
+    /**
+     * Previews the tokens that would be received when removing liquidity from a pool
+     * @param token The LP token ID
+     * @param tokenAmount The amount of LP tokens to remove
+     * @returns A promise that resolves to the preview result containing token amounts
+     */
+    previewRemoveLiquidity({ token, tokenAmount, }: {
+        token: AlkaneId;
+        tokenAmount: bigint;
+    }): Promise<RemoveLiquidityPreviewResult>;
+    getAlkanesByOutpoint({ txid, vout, protocolTag, height, }: {
         txid: string;
         vout: number;
         protocolTag?: string;
+        height?: string;
     }): Promise<any>;
     getAlkaneById({ block, tx, }: {
         block: string;

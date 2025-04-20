@@ -7,7 +7,6 @@ import {
   alkaneSend,
   alkanesTrace,
   alkaneTokenDeploy,
-  alkaneSplit,
   alkaneCreatePool,
   alkaneAddLiquidity,
   alkaneRemoveLiquidity,
@@ -15,6 +14,7 @@ import {
   alkaneSimulate,
   alkaneGetAllPoolsDetails,
   alkaneBumpFee,
+  alkanePreviewRemoveLiquidity,
 } from './alkane'
 import { init, genBlocks, sendFromFaucet } from './regtest'
 import { runeSend, runeMint, runeEtchCommit, runeEtchReveal } from './rune'
@@ -89,7 +89,6 @@ const alkaneCommand = new Command('alkane')
   .addCommand(alkaneTokenDeploy)
   .addCommand(alkanesTrace)
   .addCommand(alkaneSend)
-  .addCommand(alkaneSplit)
   .addCommand(alkaneCreatePool)
   .addCommand(alkaneAddLiquidity)
   .addCommand(alkaneRemoveLiquidity)
@@ -97,6 +96,7 @@ const alkaneCommand = new Command('alkane')
   .addCommand(alkaneSimulate)
   .addCommand(alkaneGetAllPoolsDetails)
   .addCommand(alkaneBumpFee)
+  .addCommand(alkanePreviewRemoveLiquidity)
   
   
 const providerCommand = new Command('provider')

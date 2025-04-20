@@ -771,3 +771,20 @@ export const getVSize = (data: Buffer) => {
   }
   return Math.ceil(totalSize / 4)
 }
+
+export const packUTF8 = function (s) {
+  const result = [''];
+  let b = 0;
+  for (let i = 0; i < s.length; i++) {
+    const length = Buffer.from(s[i]).length;
+    if (b + length > 15) {
+      b = 0;
+      result.push('');
+      i--;
+    } else {
+      b += length;
+      result[result.length - 1] += s[i];
+    }
+  }
+  return result.map((v) => v && Buffer.from(Array.from(Buffer.from(v)).reverse()).toString('hex') || '')
+}

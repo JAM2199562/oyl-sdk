@@ -385,41 +385,103 @@ const testEsploraTxInfo = [
   },
 ]
 
+// Add test alkane data for the updated implementation
+const testAlkanes = [
+  // No alkanes for the first two UTXOs (null values)
+  null,
+  null,
+  // Alkane for third UTXO
+  {
+    outpoint: {
+      txid: '3a7f22842a6ffc0135d76ffd2ad3add1ee72753ead36d21f22e7ef89afb1fc43',
+      vout: 0,
+    },
+    output: {
+      value: 546,
+      script:
+        'b7fbbedbe61b51bf4e41e3517b8232f31c64f3b67ffd2d8eecff12fc7db4cae5',
+    },
+  },
+  // No alkane for unconfirmed tx
+  null,
+  // No alkane for inscription
+  null,
+  // No alkane for rune
+  null,
+]
+
+// Mock the multicall results for the new implementation
+const mockMultiCallResponses = [
+  // First UTXO
+  [
+    { result: testOrdTxOutputs[0] }, // ord_output
+    { result: testEsploraTxInfo[0] }, // esplora_tx
+    { result: [] }, // alkanes_protorunesbyoutpoint
+  ],
+  // Second UTXO
+  [
+    { result: testOrdTxOutputs[1] },
+    { result: testEsploraTxInfo[1] },
+    { result: [] },
+  ],
+  // Third UTXO (with alkane)
+  [
+    { result: testOrdTxOutputs[2] },
+    { result: testEsploraTxInfo[2] },
+    { result: [testAlkanes[2]] },
+  ],
+  // Fourth UTXO (unconfirmed)
+  [
+    { result: testOrdTxOutputs[3] },
+    { result: testEsploraTxInfo[3] },
+    { result: [] },
+  ],
+  // Fifth UTXO (with inscription)
+  [
+    { result: testOrdTxOutputs[4] },
+    { result: testEsploraTxInfo[4] },
+    { result: [] },
+  ],
+  // Sixth UTXO (with rune)
+  [
+    { result: testOrdTxOutputs[5] },
+    { result: testEsploraTxInfo[5] },
+    { result: [] },
+  ],
+]
+
+const mockSandshrewMultiCall = jest.fn().mockImplementation((calls) => {
+  // First call is for retrieving UTXOs and block count
+  if (calls[0][0] === 'esplora_address::utxo') {
+    return Promise.resolve([{ result: testEsploraUtxos }, { result: 283 }])
+  }
+  // For UTXO processing, return mocked responses based on the txid:vout
+  const txIdVout = calls[0][1][0]
+  const index = testEsploraUtxos.findIndex(
+    (utxo) => `${utxo.txid}:${utxo.vout}` === txIdVout
+  )
+
+  if (index >= 0 && index < mockMultiCallResponses.length) {
+    return Promise.resolve(mockMultiCallResponses[index])
+  }
+
+  return Promise.resolve([])
+})
+
 const mockAlkanesByAddress = jest.fn().mockResolvedValue([])
-
-const mockedMultiCall = jest
-  .fn()
-  .mockResolvedValue([{ result: testEsploraUtxos }, { result: 283 }])
-const mockOrdTxOutputs = jest
-  .fn()
-  .mockResolvedValueOnce(testOrdTxOutputs[0])
-  .mockResolvedValueOnce(testOrdTxOutputs[1])
-  .mockResolvedValueOnce(testOrdTxOutputs[2])
-  .mockResolvedValueOnce(testOrdTxOutputs[3])
-  .mockResolvedValueOnce(testOrdTxOutputs[4])
-  .mockResolvedValueOnce(testOrdTxOutputs[5])
-
-const mockEsploraTxInfo = jest
-  .fn()
-  .mockResolvedValueOnce(testEsploraTxInfo[0])
-  .mockResolvedValueOnce(testEsploraTxInfo[1])
-  .mockResolvedValueOnce(testEsploraTxInfo[2])
-  .mockResolvedValueOnce(testEsploraTxInfo[3])
-  .mockResolvedValueOnce(testEsploraTxInfo[4])
-  .mockResolvedValueOnce(testEsploraTxInfo[5])
 
 jest.mock('../provider/provider', () => {
   return {
     Provider: jest.fn().mockImplementation(() => ({
       network: bitcoin.networks.bitcoin,
       sandshrew: {
-        multiCall: () => mockedMultiCall(),
+        multiCall: (calls) => mockSandshrewMultiCall(calls),
       },
       esplora: {
-        getTxInfo: () => mockEsploraTxInfo(),
+        getTxInfo: () => Promise.resolve({}),
       },
       ord: {
-        getTxOutput: () => mockOrdTxOutputs(),
+        getTxOutput: () => Promise.resolve({}),
       },
       alkanes: {
         getAlkanesByAddress: () => mockAlkanesByAddress(),
@@ -437,6 +499,7 @@ describe('utxo', () => {
 
     expect(result.spendableUtxos).toEqual(testFormattedUtxos)
     expect(result.spendableTotalBalance).toEqual(150000)
+    expect(mockSandshrewMultiCall).toHaveBeenCalled()
   })
 
   describe('selectUtxos', () => {

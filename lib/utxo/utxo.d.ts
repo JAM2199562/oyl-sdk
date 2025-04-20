@@ -21,11 +21,13 @@ export interface FormattedUtxo {
     confirmations: number;
 }
 export interface AddressUtxoPortfolio {
+    alkaneUtxos: FormattedUtxo[];
     spendableTotalBalance: number;
     spendableUtxos: FormattedUtxo[];
     runeUtxos: FormattedUtxo[];
     ordUtxos: FormattedUtxo[];
     pendingUtxos: FormattedUtxo[];
+    otherUtxos: FormattedUtxo[];
     pendingTotalBalance: number;
     totalBalance: number;
 }

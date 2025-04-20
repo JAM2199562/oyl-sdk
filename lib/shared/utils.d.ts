@@ -130,3 +130,4 @@ export declare function findXAmountOfSats(utxos: FormattedUtxo[], target: number
 };
 export declare function decodeCBOR(hex: string): DecodedCBOR;
 export declare const getVSize: (data: Buffer) => number;
+export declare const packUTF8: (s: any) => string[];

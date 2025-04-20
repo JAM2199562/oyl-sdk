@@ -12,18 +12,32 @@ import { AlkanesPayload } from 'shared/interface'
 import { encodeRunestoneProtostone } from 'alkanes/lib/protorune/proto_runestone_upgrade'
 import { ProtoStone } from 'alkanes/lib/protorune/protostone'
 import { encipher } from 'alkanes/lib/bytes'
+import { metashrew } from '../rpclient/alkanes'
 import { ProtoruneEdict } from 'alkanes/lib/protorune/protoruneedict'
 import { ProtoruneRuneId } from 'alkanes/lib/protorune/protoruneruneid'
 import { u128 } from '@magiceden-oss/runestone-lib/dist/src/integer'
 import { createNewPool, splitAlkaneUtxos } from '../amm/factory'
 import { removeLiquidity, addLiquidity, swap } from '../amm/pool'
-
+import { packUTF8 } from '../shared/utils'
 /* @dev example call
-  oyl alkane trace -params '{"txid":"0322c3a2ce665485c8125cd0334675f0ddbd7d5b278936144efb108ff59c49b5","vout":0}'
+  oyl alkane trace -params '{"txid":"e6561c7a8f80560c30a113c418bb56bde65694ac2b309a68549f35fdf2e785cb","vout":0}'
 
   Note the json format if you need to pass an object.
 */
-export const alkanesTrace = new Command('trace')
+
+export class AlkanesCommand extends Command {
+  constructor(cmd) {
+    super(cmd)
+  }
+  action(fn) {
+    this.option('-s, --metashrew-rpc-url <url>', 'metashrew JSON-RPC override')
+    return super.action(async (options) => {
+      metashrew.set(options.metashrewRpcUrl || null)
+      return await fn(options)
+    })
+  }
+}
+export const alkanesTrace = new AlkanesCommand('trace')
   .description('Returns data based on txid and vout of deployed alkane')
   .option('-p, --provider <provider>', 'provider to use to access the network.')
   .option(
@@ -56,7 +70,7 @@ export const alkanesTrace = new Command('trace')
 
   Remember to genBlocks after sending transactions to the regtest chain!
 */
-export const alkaneContractDeploy = new Command('new-contract')
+export const alkaneContractDeploy = new AlkanesCommand('new-contract')
   .requiredOption(
     '-data, --calldata <calldata>',
     'op code + params to be used when deploying a contracts',
@@ -143,7 +157,7 @@ export const alkaneContractDeploy = new Command('new-contract')
 
   Remember to genBlocks after transactions...
 */
-export const alkaneTokenDeploy = new Command('new-token')
+export const alkaneTokenDeploy = new AlkanesCommand('new-token')
   .requiredOption(
     '-resNumber, --reserveNumber <reserveNumber>',
     'Number to reserve for factory id'
@@ -173,6 +187,16 @@ export const alkaneTokenDeploy = new Command('new-token')
         account: wallet.account,
         provider: wallet.provider,
       })
+    const tokenName = packUTF8(options.tokenName)
+    const tokenSymbol = packUTF8(options.tokenSymbol)
+
+    if (tokenName.length > 2) {
+      throw new Error('Token name too long')
+    }
+
+    if (tokenSymbol.length > 1) {
+      throw new Error('Token symbol too long')
+    }
 
     const calldata = [
       BigInt(6),
@@ -182,17 +206,13 @@ export const alkaneTokenDeploy = new Command('new-token')
       BigInt(options.amountPerMint),
       BigInt(options.cap),
       BigInt(
-        '0x' +
-          Buffer.from(options.tokenName.split('').reverse().join('')).toString(
-            'hex'
-          )
+        '0x' + tokenName[0]
       ),
-      BigInt(0),
       BigInt(
-        '0x' +
-          Buffer.from(
-            options.tokenSymbol.split('').reverse().join('')
-          ).toString('hex')
+        tokenName.length > 1 ? '0x' + tokenName[1] : 0
+      ),
+      BigInt(
+        '0x' + tokenSymbol[0]
       ),
     ]
 
@@ -265,7 +285,7 @@ export const alkaneTokenDeploy = new Command('new-token')
   Hint: you can grab the TEST_WALLET's alkanes balance with:
   oyl provider alkanes -method getAlkanesByAddress -params '{"address":"bcrt1p5cyxnuxmeuwuvkwfem96lqzszd02n6xdcjrs20cac6yqjjwudpxqvg32hk"}'
 */
-export const alkaneExecute = new Command('execute')
+export const alkaneExecute = new AlkanesCommand('execute')
   .requiredOption(
     '-data, --calldata <calldata>',
     'op code + params to be called on a contract',
@@ -345,7 +365,7 @@ export const alkaneExecute = new Command('execute')
 
   Burns an alkane LP token amount
 */
-export const alkaneRemoveLiquidity = new Command('remove-liquidity')
+export const alkaneRemoveLiquidity = new AlkanesCommand('remove-liquidity')
   .requiredOption(
     '-data, --calldata <calldata>',
     'op code + params to be called on a contract',
@@ -396,7 +416,7 @@ export const alkaneRemoveLiquidity = new Command('remove-liquidity')
 
   Swaps an alkane from a pool
 */
-export const alkaneSwap = new Command('swap')
+export const alkaneSwap = new AlkanesCommand('swap')
   .requiredOption(
     '-data, --calldata <calldata>',
     'op code + params to be called on a contract',
@@ -443,76 +463,11 @@ export const alkaneSwap = new Command('swap')
   })
 
 /* @dev example call 
- oyl alkane split -tokens 2:8:20000,2:9:20000 -feeRate 5
-
-Splits an alkane token amount(s) to a send the split amount to a new outpoint
-*/
-export const alkaneSplit = new Command('split')
-  .requiredOption(
-    '-tokens, --tokens <tokens>',
-    'tokens to split and amounts',
-    (value, previous) => {
-      const items = value.split(',')
-      return previous ? previous.concat(items) : items
-    },
-    []
-  )
-  .option(
-    '-m, --mnemonic <mnemonic>',
-    '(optional) Mnemonic used for signing transactions (default = TEST_WALLET)'
-  )
-  .option(
-    '-p, --provider <provider>',
-    'Network provider type (regtest, bitcoin)'
-  )
-  .option('-feeRate, --feeRate <feeRate>', 'fee rate')
-  .action(async (options) => {
-    const wallet: Wallet = new Wallet(options)
-
-    const { accountSpendableTotalUtxos, accountSpendableTotalBalance } =
-      await utxo.accountUtxos({
-        account: wallet.account,
-        provider: wallet.provider,
-      })
-
-    const alkaneTokensToSplit = options.tokens.map((item) => {
-      const [block, tx, amount] = item.split(':').map((part) => part.trim())
-      return {
-        alkaneId: { block: block, tx: tx },
-        amount: BigInt(amount),
-      }
-    })
-
-    const { alkaneUtxos, totalSatoshis, protostone } = await splitAlkaneUtxos(
-      alkaneTokensToSplit,
-      wallet.account,
-      wallet.provider
-    )
-    console.log(
-      await split({
-        alkaneUtxos: {
-          alkaneUtxos,
-          totalSatoshis,
-        },
-        gatheredUtxos: {
-          utxos: accountSpendableTotalUtxos,
-          totalAmount: accountSpendableTotalBalance,
-        },
-        account: wallet.account,
-        protostone,
-        provider: wallet.provider,
-        feeRate: wallet.feeRate,
-        signer: wallet.signer,
-      })
-    )
-  })
-
-/* @dev example call 
   oyl alkane send -blk 2 -tx 1 -amt 200 -to bcrt1pkq6ayylfpe5hn05550ry25pkakuf72x9qkjc2sl06dfcet8sg25ql4dm73
 
   Sends an alkane token amount to a given address (example is sending token with Alkane ID [2, 1]) 
 */
-export const alkaneSend = new Command('send')
+export const alkaneSend = new AlkanesCommand('send')
   .requiredOption('-to, --to <to>')
   .requiredOption('-amt, --amount <amount>')
   .requiredOption('-blk, --block <block>')
@@ -557,7 +512,7 @@ export const alkaneSend = new Command('send')
 
 Creates a new pool with the given tokens and amounts
 */
-export const alkaneCreatePool = new Command('create-pool')
+export const alkaneCreatePool = new AlkanesCommand('create-pool')
   .requiredOption(
     '-data, --calldata <calldata>',
     'op code + params to be called on a contract',
@@ -628,7 +583,7 @@ export const alkaneCreatePool = new Command('create-pool')
 
 Mints new LP tokens and adds liquidity to the pool with the given tokens and amounts
 */
-export const alkaneAddLiquidity = new Command('add-liquidity')
+export const alkaneAddLiquidity = new AlkanesCommand('add-liquidity')
   .requiredOption(
     '-data, --calldata <calldata>',
     'op code + params to be called on a contract',
@@ -702,7 +657,7 @@ export const alkaneAddLiquidity = new Command('add-liquidity')
   Simulates an operation using the pool decoder
   First input is the opcode
 */
-export const alkaneSimulate = new Command('simulate')
+export const alkaneSimulate = new AlkanesCommand('simulate')
   .requiredOption(
     '-target, --target <target>',
     'target block:tx for simulation',
@@ -790,7 +745,9 @@ export const alkaneSimulate = new Command('simulate')
  2. For each pool ID, getting its details
  3. Returning a combined result with all pool details
 */
-export const alkaneGetAllPoolsDetails = new Command('get-all-pools-details')
+export const alkaneGetAllPoolsDetails = new AlkanesCommand(
+  'get-all-pools-details'
+)
   .requiredOption(
     '-target, --target <target>',
     'target block:tx for the factory contract',
@@ -834,12 +791,54 @@ export const alkaneGetAllPoolsDetails = new Command('get-all-pools-details')
     console.log(JSON.stringify(allPoolsDetails, null, 2))
   })
 
+/* @dev example call
+ oyl alkane preview-remove-liquidity -target "2:1" -blk 2 -tx 1 -amt 200
+
+ 预览移除流动性的结果，显示将获得的代币数量
+*/
+export const alkanePreviewRemoveLiquidity = new AlkanesCommand('preview-remove-liquidity')
+  .requiredOption('-target, --target <target>', 'target block:tx for simulation', (value) => {
+    const [block, tx] = value.split(':').map((part) => part.trim())
+    return { block: block.toString(), tx: tx.toString() }
+  })
+  .requiredOption('-amt, --amount <amount>', 'amount to burn')
+  .requiredOption('-blk, --block <block>', 'block number')
+  .requiredOption('-tx, --txNum <txNum>', 'transaction number')
+  .option('-p, --provider <provider>', 'Network provider type (regtest, bitcoin)')
+  .action(async (options) => {
+    const wallet: Wallet = new Wallet(options)
+
+    const request = {
+      alkanes: [],
+      transaction: '0x',
+      block: '0x',
+      height: '20000',
+      txindex: 0,
+      target: options.target,
+      inputs: [9, options.block, options.txNum, options.amount],
+      pointer: 0,
+      refundPointer: 0,
+      vout: 0,
+    }
+
+    const { AlkanesAMMPoolDecoder } = await import('../amm/pool')
+    const decoder = (result: any) => AlkanesAMMPoolDecoder.decodeSimulation(result, 9)
+
+    console.log(
+      JSON.stringify(
+        await wallet.provider.alkanes.simulate(request, decoder),
+        null,
+        2
+      )
+    )
+  })
+
 /**
  * Command for bumping the fee of a transaction using RBF
  * @example
  * oyl alkane bump-fee -txid "6c17d0fc8b915aae2ce1a99b4bfd149f2ebc5e6762202a770a1329dff99ee0b1" -feeRate 5 -p regtest
  */
-export const alkaneBumpFee = new Command('bump-fee')
+export const alkaneBumpFee = new AlkanesCommand('bump-fee')
   .requiredOption('-txid, --transaction-id <txid>', 'Transaction ID to bump')
   .option('-feeRate, --feeRate <feeRate>', 'New fee rate in sat/vB')
   .option('-p, --provider <provider>', 'Network provider type (regtest, bitcoin)')

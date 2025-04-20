@@ -1,6 +1,8 @@
 import { Command } from 'commander'
 import { DEFAULT_PROVIDER } from './constants'
 import { Provider } from '..'
+import { AlkanesCommand } from "./alkane";
+import { metashrew } from "../rpclient/alkanes";
 
 
 /* @dev example call
@@ -12,7 +14,7 @@ import { Provider } from '..'
 
   Note the json format if you need to pass an object.
 */
-export const alkanesProvider = new Command('alkanes')
+export const alkanesProvider = new AlkanesCommand('alkanes')
   .description('Returns data based on alkanes method invoked')
   .requiredOption(
     '-method, --method <method>',

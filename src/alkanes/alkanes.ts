@@ -1,7 +1,13 @@
 import { minimumFee } from '../btc'
 import { Provider } from '../provider/provider'
 import * as bitcoin from 'bitcoinjs-lib'
-import { p2tr_ord_reveal } from 'alkanes/lib/index'
+import {
+  encipher,
+  encodeRunestoneProtostone,
+  p2tr_ord_reveal,
+  ProtoStone,
+} from 'alkanes/lib/index'
+import { ProtoruneEdict } from 'alkanes/lib/protorune/protoruneedict'
 import { Account, Signer } from '..'
 import {
   findXAmountOfSats,
@@ -20,7 +26,37 @@ import { LEAF_VERSION_TAPSCRIPT } from 'bitcoinjs-lib/src/payments/bip341'
 import { Outpoint } from 'rpclient/alkanes'
 import { actualDeployCommitFee } from './contract'
 
+export interface ProtostoneMessage {
+  protocolTag?: bigint
+  edicts?: ProtoruneEdict[]
+  pointer?: number
+  refundPointer?: number
+  calldata: bigint[]
+}
+
+export const encodeProtostone = ({
+  protocolTag = 1n,
+  edicts = [],
+  pointer = 0,
+  refundPointer = 0,
+  calldata,
+}: ProtostoneMessage) => {
+  return encodeRunestoneProtostone({
+    protostones: [
+      ProtoStone.message({
+        protocolTag,
+        edicts,
+        pointer,
+        refundPointer,
+        calldata: encipher(calldata),
+      }),
+    ],
+  }).encodedRunestone
+}
+
 export const createExecutePsbt = async ({
+  frontendFee,
+  feeAddress,
   alkaneUtxos,
   gatheredUtxos,
   account,
@@ -29,6 +65,8 @@ export const createExecutePsbt = async ({
   feeRate,
   fee = 0,
 }: {
+  frontendFee?: number
+  feeAddress?: string
   alkaneUtxos?: {
     alkaneUtxos: any[]
     totalSatoshis: number
@@ -54,7 +92,7 @@ export const createExecutePsbt = async ({
 
     gatheredUtxos = findXAmountOfSats(
       originalGatheredUtxos.utxos,
-      Number(finalFee) + 546
+      Number(finalFee) + 546 + (frontendFee || 0)
     )
 
     let psbt = new bitcoin.Psbt({ network: provider.network })
@@ -191,12 +229,20 @@ export const createExecutePsbt = async ({
       gatheredUtxos.totalAmount +
       (alkaneUtxos?.totalSatoshis || 0) -
       finalFee -
-      546
+      546 -
+      (frontendFee || 0)
 
     psbt.addOutput({
       address: account[account.spendStrategy.changeAddress].address,
       value: changeAmount,
     })
+
+    if (frontendFee && feeAddress) {
+      psbt.addOutput({
+        address: feeAddress,
+        value: frontendFee,
+      })
+    }
 
     const formattedPsbtTx = await formatInputsToSign({
       _psbt: psbt,
@@ -714,6 +760,8 @@ export const actualExecuteFee = async ({
   provider,
   feeRate,
   alkaneUtxos,
+  frontendFee,
+  feeAddress,
 }: {
   gatheredUtxos: GatheredUtxos
   account: Account
@@ -724,12 +772,16 @@ export const actualExecuteFee = async ({
     alkaneUtxos: any[]
     totalSatoshis: number
   }
+  frontendFee?: number
+  feeAddress?: string
 }) => {
   if (!feeRate) {
     feeRate = (await provider.esplora.getFeeEstimates())['1']
   }
 
   const { psbt } = await createExecutePsbt({
+    frontendFee,
+    feeAddress,
     gatheredUtxos,
     account,
     protostone,
@@ -745,6 +797,8 @@ export const actualExecuteFee = async ({
   })
 
   const { psbt: finalPsbt } = await createExecutePsbt({
+    frontendFee,
+    feeAddress,
     gatheredUtxos,
     account,
     protostone,
@@ -770,6 +824,8 @@ export const executePsbt = async ({
   protostone,
   provider,
   feeRate,
+  frontendFee,
+  feeAddress,
 }: {
   alkaneUtxos?: {
     alkaneUtxos: any[]
@@ -780,8 +836,12 @@ export const executePsbt = async ({
   protostone: Buffer
   provider: Provider
   feeRate?: number
+  frontendFee?: number
+  feeAddress?: string
 }) => {
   const { fee } = await actualExecuteFee({
+    frontendFee,
+    feeAddress,
     alkaneUtxos,
     gatheredUtxos,
     account,
@@ -791,6 +851,8 @@ export const executePsbt = async ({
   })
 
   const { psbt: finalPsbt } = await createExecutePsbt({
+    frontendFee,
+    feeAddress,
     alkaneUtxos,
     gatheredUtxos,
     account,
@@ -811,6 +873,8 @@ export const execute = async ({
   provider,
   feeRate,
   signer,
+  frontendFee,
+  feeAddress,
 }: {
   alkaneUtxos?: {
     alkaneUtxos: any[]
@@ -822,8 +886,12 @@ export const execute = async ({
   provider: Provider
   feeRate?: number
   signer: Signer
+  frontendFee?: number
+  feeAddress?: string
 }) => {
   const { fee } = await actualExecuteFee({
+    frontendFee,
+    feeAddress,
     alkaneUtxos,
     gatheredUtxos,
     account,
@@ -833,6 +901,8 @@ export const execute = async ({
   })
 
   const { psbt: finalPsbt } = await createExecutePsbt({
+    frontendFee,
+    feeAddress,
     alkaneUtxos,
     gatheredUtxos,
     account,

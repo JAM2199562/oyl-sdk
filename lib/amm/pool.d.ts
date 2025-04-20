@@ -1,25 +1,9 @@
 import { Account, Provider, Signer } from '..';
 import { AlkaneId, Utxo } from 'shared/interface';
+import { PoolDetailsResult, RemoveLiquidityPreviewResult } from './utils';
 export type SwapSimulationResult = {
     amountOut: bigint;
 };
-export type PoolDetailsResult = {
-    token0: AlkaneId;
-    token1: AlkaneId;
-    token0Amount: string;
-    token1Amount: string;
-    tokenSupply: string;
-    poolName: string;
-};
-export declare enum PoolOpcodes {
-    INIT_POOL = 0,
-    ADD_LIQUIDITY = 1,
-    REMOVE_LIQUIDITY = 2,
-    SWAP = 3,
-    SIMULATE_SWAP = 4,
-    NAME = 99,
-    POOL_DETAILS = 999
-}
 export declare class AlkanesAMMPoolDecoder {
     decodeSwap(data: string): SwapSimulationResult | undefined;
     decodePoolDetails(data: string): PoolDetailsResult | undefined;
@@ -65,6 +49,18 @@ export declare const addLiquidity: ({ calldata, token0, token0Amount, token1, to
     fee: number;
     satsPerVByte: string;
 }>;
+/**
+ * Estimates the tokens that would be received when removing liquidity from a pool
+ * @param token The LP token ID
+ * @param tokenAmount The amount of LP tokens to remove
+ * @param provider The provider instance
+ * @returns A promise that resolves to the preview result containing token amounts
+ */
+export declare const previewRemoveLiquidity: ({ token, tokenAmount, provider, }: {
+    token: AlkaneId;
+    tokenAmount: bigint;
+    provider: Provider;
+}) => Promise<RemoveLiquidityPreviewResult>;
 export declare const removeLiquidityPsbt: ({ calldata, token, tokenAmount, gatheredUtxos, feeRate, account, provider, }: {
     calldata: bigint[];
     token: AlkaneId;
@@ -78,6 +74,7 @@ export declare const removeLiquidityPsbt: ({ calldata, token, tokenAmount, gathe
     provider: Provider;
 }) => Promise<{
     psbt: string;
+    fee: number;
 }>;
 export declare const removeLiquidity: ({ calldata, token, tokenAmount, gatheredUtxos, feeRate, account, signer, provider, }: {
     calldata: bigint[];
@@ -99,7 +96,7 @@ export declare const removeLiquidity: ({ calldata, token, tokenAmount, gatheredU
     fee: number;
     satsPerVByte: string;
 }>;
-export declare const swapPsbt: ({ calldata, token, tokenAmount, gatheredUtxos, feeRate, account, provider, }: {
+export declare const swapPsbt: ({ calldata, token, tokenAmount, gatheredUtxos, feeRate, account, provider, frontendFee, feeAddress, }: {
     calldata: bigint[];
     token: AlkaneId;
     tokenAmount: bigint;
@@ -110,10 +107,13 @@ export declare const swapPsbt: ({ calldata, token, tokenAmount, gatheredUtxos, f
     feeRate: number;
     account: Account;
     provider: Provider;
+    frontendFee?: number;
+    feeAddress?: string;
 }) => Promise<{
     psbt: string;
+    fee: number;
 }>;
-export declare const swap: ({ calldata, token, tokenAmount, gatheredUtxos, feeRate, account, signer, provider, }: {
+export declare const swap: ({ calldata, token, tokenAmount, gatheredUtxos, feeRate, account, signer, provider, frontendFee, feeAddress, }: {
     calldata: bigint[];
     token: AlkaneId;
     tokenAmount: bigint;
@@ -125,6 +125,8 @@ export declare const swap: ({ calldata, token, tokenAmount, gatheredUtxos, feeRa
     account: Account;
     provider: Provider;
     signer: Signer;
+    frontendFee?: number;
+    feeAddress?: string;
 }) => Promise<{
     txId: string;
     rawTx: string;
