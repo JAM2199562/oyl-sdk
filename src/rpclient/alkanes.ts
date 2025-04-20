@@ -172,8 +172,13 @@ export class AlkanesRpc {
 
       const responseData = await response.json()
 
-      if (responseData.error) throw new Error(responseData.error.message)
-      return responseData.result
+      if (typeof responseData === 'object' && responseData !== null) {
+        const typedResponse = responseData as { error?: { message: string }, result?: any }
+        if (typedResponse.error) throw new Error(typedResponse.error.message)
+        return typedResponse.result
+      }
+      
+      throw new Error('Invalid response format')
     } catch (error) {
       if (error.name === 'AbortError') {
         console.error('Request Timeout:', error)

@@ -30,12 +30,15 @@ export class SandshrewBitcoinClient {
       const response = await fetch(this.apiUrl, requestOptions)
 
       const responseData = await response.json()
-      if (responseData.error) {
-        console.error('JSON-RPC Error:', responseData.error)
-        throw new Error(responseData.error)
+      if (typeof responseData === 'object' && responseData !== null) {
+        const typedResponse = responseData as { error?: string, result?: any }
+        if (typedResponse.error) {
+          console.error('JSON-RPC Error:', typedResponse.error)
+          throw new Error(typedResponse.error)
+        }
+        return typedResponse.result
       }
-
-      return responseData.result
+      throw new Error('Invalid response format')
     } catch (error) {
       if (error.name === 'AbortError') {
         console.error('Request Timeout:', error)
